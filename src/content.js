@@ -60,19 +60,16 @@ const NAVIGATION_EVENTS = ['soft-nav:end', 'turbo:render', 'pjax:end']
 const PAGE_HEADER_SELECTOR = '[class^="prc-PageHeader-PageHeader"]'
 const REASSERT_DEBOUNCE = 50
 
+// Where commit titles live. GitHub replaced the `.commit-message` markup with a
+// React commit list, so both shapes are probed.
+const COMMIT_TITLE_SELECTORS = [
+    '.commit-message code a',
+    'li[data-testid="commit-row-item"] a.color-fg-default',
+]
+
 /////////////////////////////////
 // TEMPLATES
 /////////////////////////////////
-
-function commitStreamEl(href, content) {
-    const el = document.createElement('div');
-    el.innerHTML = `
-        <a href="${href}">${content[0]}</a>
-        <a href="${getJiraUrl(content[1])}" target="_blank" alt="Ticket in Jira"><b>${content[1]}</b></a>
-        <a href="${href}">${content[2].trim()}</a>
-    `;
-    return el;
-}
 
 function titleHTMLContent(title, issueKey) {
     return title.replace(/([A-Z0-9]+-[0-9]+)/, `
@@ -262,21 +259,36 @@ function checkPage() {
 
 
 function handleCommitsTitle() {
-    document.querySelectorAll('.commit-message code').forEach((el) => {
-        const linkEl = el.querySelector('a');
-        const linkHtml = linkEl.innerHTML;
-        const splittedContent = linkHtml.split(/([A-Z]+-[0-9]+)/g);
+    const issueKeyPattern = /([A-Z][A-Z0-9]*-[0-9]+)/;
 
-        if (splittedContent.length < 3) {
+    document.querySelectorAll(COMMIT_TITLE_SELECTORS.join(', ')).forEach((linkEl) => {
+        // Already handled - a re-render or a navigation re-runs this over the
+        // same nodes.
+        if (linkEl.dataset.jiraLinked === 'true') {
             return;
         }
 
-        const contentEl = document.createElement('div');
-        for(var i=0; i< splittedContent.length; i+=3) {
-            contentEl.appendChild(commitStreamEl(linkEl.getAttribute('href'), splittedContent));
+        const match = linkEl.textContent.match(issueKeyPattern);
+        if (!match) {
+            return;
         }
-        el.innerHTML = '';
-        el.appendChild(contentEl);
+
+        const issueKey = match[1];
+        linkEl.dataset.jiraLinked = 'true';
+
+        // Append a sibling link rather than rebuilding the commit anchor's
+        // insides. The commit title is a React-owned <a>, and nesting another
+        // <a> inside it is invalid HTML that the parser drops.
+        const jiraLink = document.createElement('a');
+        jiraLink.href = getJiraUrl(issueKey);
+        jiraLink.target = '_blank';
+        jiraLink.rel = 'noopener noreferrer';
+        jiraLink.title = 'Ticket in Jira';
+        jiraLink.textContent = issueKey;
+        jiraLink.className = 'jira-commit-link';
+        jiraLink.style.cssText = 'margin-left:6px;font-weight:600;white-space:nowrap;';
+
+        linkEl.insertAdjacentElement('afterend', jiraLink);
     });
 }
 
