@@ -181,7 +181,6 @@ function statusCategoryColors(statusCategory = {}) {
 function headerBlock(issueKey,
     {
         assignee,
-        reporter,
         status: { iconUrl: statusIcon, name: statusName, statusCategory } = {},
         summary
     } = {}
@@ -211,10 +210,7 @@ function headerBlock(issueKey,
                     text: `${issueKey} - ${summary ?? ''}`,
                 }),
             ]),
-            el('div', { class: 'd-inline-block' }, [
-                userBlock('Reported by', reporter),
-                userBlock('and assigned to', assignee),
-            ]),
+            userBlock('Assigned to', assignee),
         ]),
     ])
 }
