@@ -28,6 +28,12 @@ let prTemplate = `
 let prTemplateEnabled = true;
 let prTitleEnabled = true;
 
+// Watches the PR header for React reverting our injection
+let headerObserver = null;
+let reassertTimer = null;
+// Last Jira payload, so re-asserting after a re-render doesn't refetch
+let ticketCache = { key: null, fields: null };
+
 main().catch(err => console.error('Unexpected error', err))
 
 /////////////////////////////////
@@ -45,6 +51,14 @@ const GITHUB_PAGE_COMPARE = /github\.com\/(.*)\/(.*)\/compare\/(.*)/
 // current React-rendered pages emit; `turbo:render` and `pjax:end` are kept for
 // pages (and GitHub Enterprise versions) still served by the older stack.
 const NAVIGATION_EVENTS = ['soft-nav:end', 'turbo:render', 'pjax:end']
+
+// The PR header is a React subtree that keeps committing while the page loads
+// its timeline, checks and status. Anything written into it before those
+// commits finish gets reconciled away, so the injection is watched and
+// re-applied. Scoped to the header (~80 nodes) rather than document.body
+// (~3600), which is what made the original observer expensive.
+const PAGE_HEADER_SELECTOR = '[class^="prc-PageHeader-PageHeader"]'
+const REASSERT_DEBOUNCE = 50
 
 /////////////////////////////////
 // TEMPLATES
@@ -87,6 +101,7 @@ function buildLoadingElement(issueKey) {
     const el = document.createElement('div');
     el.id = 'insertedJiraData';
     el.className = 'gh-header-meta';
+    el.dataset.ticket = issueKey;
     el.innerText = `Loading ticket ${issueKey}...`;
     return el;
 }
@@ -265,21 +280,71 @@ function handleCommitsTitle() {
     });
 }
 
+// True when both halves of the injection are still on the page. React can
+// revert the title while leaving the details block, so check each separately.
+function jiraHeaderIsIntact(ticketNumber) {
+    const injectedEl = document.querySelector('#insertedJiraData');
+    if (!injectedEl || injectedEl.dataset.ticket !== ticketNumber) {
+        return false;
+    }
+
+    const titleEl = document.querySelector('h1 > span.markdown-title');
+    if (titleEl && !titleEl.querySelector(`a[href^="${getJiraUrl('')}"]`)) {
+        return false;
+    }
+
+    return true;
+}
+
+// Re-apply the injection after React has reconciled it away.
+function watchHeader() {
+    const descriptionEl = document.querySelector('[class^="prc-PageHeader-Description"]');
+    const headerEl = descriptionEl && (descriptionEl.closest(PAGE_HEADER_SELECTOR) || descriptionEl.parentElement);
+    if (!headerEl || (headerObserver && headerObserver.headerEl === headerEl)) {
+        return;
+    }
+
+    if (headerObserver) {
+        headerObserver.disconnect();
+    }
+
+    headerObserver = new MutationObserver(() => {
+        clearTimeout(reassertTimer);
+        reassertTimer = setTimeout(() => handlePrPage(), REASSERT_DEBOUNCE);
+    });
+    headerObserver.headerEl = headerEl;
+    headerObserver.observe(headerEl, { childList: true, subtree: true });
+}
+
 async function handlePrPage() {
     const titleEl = document.querySelector('h1 > span.markdown-title');
-    const insertedJiraDataEl = document.querySelector('#insertedJiraData');
     const pageHeaderDescriptionEl = document.querySelector('[class^="prc-PageHeader-Description"]');
-    if (!titleEl || insertedJiraDataEl) {
-        //If we didn't find a ticket, or the data is already inserted, cancel.
+    if (!titleEl || !pageHeaderDescriptionEl) {
+        // Header hasn't rendered (yet) - nothing to attach to.
         return false;
     }
 
     const title = titleEl.innerHTML;
 
-    const [ticketNumber] = title.match(/([A-Z0-9]+-[0-9]+)/);
-    if (!ticketNumber) {
+    const titleMatch = title.match(/([A-Z0-9]+-[0-9]+)/);
+    if (!titleMatch) {
         // Title was found, but ticket number wasn't.
         return false;
+    }
+    const ticketNumber = titleMatch[1];
+
+    // Keep watching even when nothing needs re-applying, so the observer is
+    // re-pointed after a client-side navigation swaps the header element.
+    watchHeader();
+
+    if (jiraHeaderIsIntact(ticketNumber)) {
+        return false;
+    }
+
+    // A stale block belongs to a previous render or a previous PR.
+    const staleEl = document.querySelector('#insertedJiraData');
+    if (staleEl) {
+        staleEl.remove();
     }
 
     //Replace title with clickable link to jira ticket
@@ -289,12 +354,20 @@ async function handlePrPage() {
     const loadingElement = buildLoadingElement(ticketNumber);
     pageHeaderDescriptionEl.appendChild(loadingElement);
 
+    // Re-rendering can happen several times while the page settles; serve the
+    // ticket from cache so each re-apply doesn't hit Jira again.
+    if (ticketCache.key === ticketNumber && ticketCache.fields) {
+        loadingElement.innerHTML = headerBlock(ticketNumber, ticketCache.fields);
+        return true;
+    }
+
     //Load up data from jira
     try {
         const result = await sendMessage({ query: 'getTicketInfo', jiraUrl, ticketNumber })
         if (result.errors) {
             throw new Error(result.errorMessages);
         }
+        ticketCache = { key: ticketNumber, fields: result.fields };
         loadingElement.innerHTML = headerBlock(ticketNumber, result.fields);
     } catch(e) {
         console.error('Error fetching data', e)
