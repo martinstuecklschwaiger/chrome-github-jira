@@ -71,6 +71,41 @@ const COMMIT_TITLE_SELECTORS = [
 // TEMPLATES
 /////////////////////////////////
 
+// Only http(s) URLs are allowed through to an href or src. Anything else -
+// javascript:, data:, a malformed string - becomes empty.
+function sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') {
+        return '';
+    }
+
+    try {
+        const parsed = new URL(url);
+        return (parsed.protocol === 'https:' || parsed.protocol === 'http:') ? parsed.href : '';
+    } catch {
+        return '';
+    }
+}
+
+// Small helper so the blocks below stay readable while still going through
+// textContent rather than innerHTML.
+function el(tag, props = {}, children = []) {
+    const node = document.createElement(tag);
+    Object.entries(props).forEach(([key, value]) => {
+        if (value === '' || value === null || value === undefined) {
+            return;
+        }
+        if (key === 'text') {
+            node.textContent = value;
+        } else if (key === 'style') {
+            node.style.cssText = value;
+        } else {
+            node.setAttribute(key, value);
+        }
+    });
+    children.filter(Boolean).forEach(child => node.appendChild(child));
+    return node;
+}
+
 function titleHTMLContent(title, issueKey) {
     return title.replace(/([A-Z0-9]+-[0-9]+)/, `
         <a href="${getJiraUrl(issueKey)}" target="_blank" alt="Ticket in Jira">${issueKey}</a>
@@ -78,20 +113,30 @@ function titleHTMLContent(title, issueKey) {
 }
 
 
-function userHTMLContent(text, user) {
-    if (user && typeof user === 'object') {
-        const { avatarUrls, displayName } = user
-        return `
-            <div class="d-inline-block">
-                ${text}
-                <span class="author text-bold">
-                    <a class="no-underline"><img style="float:none;margin-right:0" class="avatar avatar-user" src="${avatarUrls['16x16']}" width="20"/></a>
-                    ${displayName}
-                </span>
-            </div>
-        `
+function userBlock(text, user) {
+    if (!user || typeof user !== 'object') {
+        return null
     }
-    return ''
+
+    const { avatarUrls, displayName } = user
+    const avatarSrc = sanitizeUrl(avatarUrls && avatarUrls['16x16'])
+
+    return el('div', { class: 'd-inline-block' }, [
+        document.createTextNode(`${text} `),
+        el('span', { class: 'author text-bold' }, [
+            avatarSrc
+                ? el('a', { class: 'no-underline' }, [
+                    el('img', {
+                        class: 'avatar avatar-user',
+                        style: 'float:none;margin-right:0',
+                        width: '20',
+                        src: avatarSrc,
+                    }),
+                ])
+                : null,
+            document.createTextNode(` ${displayName ?? ''}`),
+        ]),
+    ])
 }
 
 function buildLoadingElement(issueKey) {
@@ -104,19 +149,18 @@ function buildLoadingElement(issueKey) {
 }
 
 function statusIconBlock(statusIcon) {
-    if (!statusIcon) {
-        return ''
+    const src = sanitizeUrl(statusIcon)
+    if (!src) {
+        return null
     }
-
-    const origin = new URL(statusIcon).origin
-    const base = new URL(origin).href
 
     // If the icon is the same as its origin, it most probably is not an image
-    if (statusIcon === origin || statusIcon === base) {
-        return ''
+    const origin = new URL(src).origin
+    if (src === origin || src === new URL(origin).href) {
+        return null
     }
 
-    return `<img height="16" class="octicon" width="12" aria-hidden="true" src="${statusIcon}"/>`
+    return el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src })
 }
 
 function statusCategoryColors(statusCategory) {
@@ -140,35 +184,36 @@ function headerBlock(issueKey,
     } = {}
 ) {
     const issueUrl = getJiraUrl(issueKey)
-    const statusIconHTML = statusIconBlock(statusIcon)
     const { color: statusColor, background: statusBackground } = statusCategoryColors(statusCategory);
-    return `
-        <div class="TableObject">
-            <div class="TableObject-item">
-                <span class="State State--green" style="background-color: rgb(150, 198, 222);">
-                    <img height="16" class="octicon" width="12" aria-hidden="true" src="${jiraLogo}"/>
-                    <a style="color:white;" href="${issueUrl}" target="_blank">Jira</a>
-                </span>
-            </div>
-            <div class="TableObject-item">
-                <span class="State State--white" style="color: ${statusColor}; background: ${statusBackground}">
-                    ${statusIconHTML}
-                    ${statusName}
-                </span>
-            </div>
-            <div class="TableObject-item TableObject-item--primary">
-                <strong>
-                    <a href="${issueUrl}" target="_blank">
-                        ${issueKey} - ${summary}
-                    </a>
-                </strong>
-                <div class="d-inline-block">
-                    ${userHTMLContent('Reported by', reporter)}
-                    ${userHTMLContent('and assigned to', assignee)}
-                </div>
-            </div>
-        </div>
-    `
+
+    return el('div', { class: 'TableObject' }, [
+        el('div', { class: 'TableObject-item' }, [
+            el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222);' }, [
+                el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src: jiraLogo }),
+                el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
+            ]),
+        ]),
+        el('div', { class: 'TableObject-item' }, [
+            el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}` }, [
+                statusIconBlock(statusIcon),
+                document.createTextNode(` ${statusName ?? ''}`),
+            ]),
+        ]),
+        el('div', { class: 'TableObject-item TableObject-item--primary' }, [
+            el('strong', {}, [
+                el('a', {
+                    href: issueUrl,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    text: `${issueKey} - ${summary ?? ''}`,
+                }),
+            ]),
+            el('div', { class: 'd-inline-block' }, [
+                userBlock('Reported by', reporter),
+                userBlock('and assigned to', assignee),
+            ]),
+        ]),
+    ])
 }
 
 /////////////////////////////////
@@ -369,7 +414,7 @@ async function handlePrPage() {
     // Re-rendering can happen several times while the page settles; serve the
     // ticket from cache so each re-apply doesn't hit Jira again.
     if (ticketCache.key === ticketNumber && ticketCache.fields) {
-        loadingElement.innerHTML = headerBlock(ticketNumber, ticketCache.fields);
+        loadingElement.replaceChildren(headerBlock(ticketNumber, ticketCache.fields));
         return true;
     }
 
@@ -380,7 +425,7 @@ async function handlePrPage() {
             throw new Error(result.errorMessages);
         }
         ticketCache = { key: ticketNumber, fields: result.fields };
-        loadingElement.innerHTML = headerBlock(ticketNumber, result.fields);
+        loadingElement.replaceChildren(headerBlock(ticketNumber, result.fields));
     } catch(e) {
         console.error('Error fetching data', e)
         loadingElement.innerText = e.message;
