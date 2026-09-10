@@ -1,5 +1,3 @@
-// The last time a refresh of the page was done
-let lastRefresh = (new Date()).getTime();
 let jiraLogo = chrome.runtime.getURL("images/jira.png");
 let jiraUrl = '';
 let acceptanceStartString = 'h3. Acceptance Criteria';
@@ -30,8 +28,6 @@ let prTemplate = `
 let prTemplateEnabled = true;
 let prTitleEnabled = true;
 
-const REFRESH_TIMEOUT = 250;
-
 main().catch(err => console.error('Unexpected error', err))
 
 /////////////////////////////////
@@ -44,6 +40,11 @@ const PAGE_PR_CREATE = 'PAGE_PR_CREATE';
 const GITHUB_PAGE_PULL = /github\.com\/(.*)\/(.*)\/pull\//
 const GITHUB_PAGE_PULLS = /github\.com\/(.*)\/(.*)\/pulls/
 const GITHUB_PAGE_COMPARE = /github\.com\/(.*)\/(.*)\/compare\/(.*)/
+
+// Events GitHub fires after a client-side navigation. `soft-nav:end` is what the
+// current React-rendered pages emit; `turbo:render` and `pjax:end` are kept for
+// pages (and GitHub Enterprise versions) still served by the older stack.
+const NAVIGATION_EVENTS = ['soft-nav:end', 'turbo:render', 'pjax:end']
 
 /////////////////////////////////
 // TEMPLATES
@@ -190,8 +191,10 @@ async function main(items) {
         // Checks the login
         const { name } = await sendMessage({ query: 'getSession', jiraUrl });
 
-        // Hook into the turbo render event, for subsequent navigation
-        document.addEventListener('turbo:render', checkPage, { passive: true });
+        // Hook into GitHub's client-side navigation events.
+        NAVIGATION_EVENTS.forEach((eventName) => {
+            document.addEventListener(eventName, checkPage, { passive: true });
+        });
 
         // Check page initially (on first load)
         checkPage();
