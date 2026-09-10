@@ -28,12 +28,14 @@ const NAVIGATION_EVENTS = ['soft-nav:end', 'turbo:render', 'pjax:end']
 // `123-456`, so a PR titled "Bump 123-456" was read as a ticket reference.
 const JIRA_KEY = /([A-Z][A-Z0-9]*-[0-9]+)/
 
-// The PR header is a React subtree that keeps committing while the page loads
-// its timeline, checks and status. Anything written into it before those
-// commits finish gets reconciled away, so the injection is watched and
-// re-applied. Scoped to the header (~80 nodes) rather than document.body
-// (~3600), which is what made the original observer expensive.
-const PAGE_HEADER_SELECTOR = '[class^="prc-PageHeader-PageHeader"]'
+// GitHub renders the PR header server-side, then mounts its React app a
+// second or two later and replaces that whole header element. Anything we
+// injected goes with it, so the injection is watched and re-applied.
+//
+// The watch has to be on document.body: a MutationObserver sees mutations to
+// its target's descendants, but not the target itself being removed from its
+// parent, so an observer pinned to the header goes silent the moment React
+// swaps it out.
 const REASSERT_DEBOUNCE = 50
 
 // Where commit titles live. GitHub replaced the `.commit-message` markup with a
@@ -331,24 +333,25 @@ function jiraHeaderIsIntact(ticketNumber) {
     return true;
 }
 
-// Re-apply the injection after React has reconciled it away.
-function watchHeader() {
-    const descriptionEl = document.querySelector('[class^="prc-PageHeader-Description"]');
-    const headerEl = descriptionEl && (descriptionEl.closest(PAGE_HEADER_SELECTOR) || descriptionEl.parentElement);
-    if (!headerEl || (headerObserver && headerObserver.headerEl === headerEl)) {
+// Re-apply the injection after React has replaced the header.
+function watchDocument() {
+    if (headerObserver) {
         return;
     }
 
-    if (headerObserver) {
-        headerObserver.disconnect();
-    }
-
     headerObserver = new MutationObserver(() => {
-        clearTimeout(reassertTimer);
-        reassertTimer = setTimeout(() => handlePrPage(), REASSERT_DEBOUNCE);
+        // Trailing throttle rather than a resetting debounce: document-wide
+        // mutations arrive in long bursts, and a debounce that restarts on
+        // every batch would keep pushing the work further out.
+        if (reassertTimer) {
+            return;
+        }
+        reassertTimer = setTimeout(() => {
+            reassertTimer = null;
+            handlePrPage();
+        }, REASSERT_DEBOUNCE);
     });
-    headerObserver.headerEl = headerEl;
-    headerObserver.observe(headerEl, { childList: true, subtree: true });
+    headerObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 async function handlePrPage() {
@@ -366,9 +369,8 @@ async function handlePrPage() {
     }
     const ticketNumber = titleMatch[1];
 
-    // Keep watching even when nothing needs re-applying, so the observer is
-    // re-pointed after a client-side navigation swaps the header element.
-    watchHeader();
+    // Keep watching even when nothing needs re-applying.
+    watchDocument();
 
     if (jiraHeaderIsIntact(ticketNumber)) {
         return false;
