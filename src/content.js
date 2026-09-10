@@ -82,10 +82,35 @@ function el(tag, props = {}, children = []) {
     return node;
 }
 
-function titleHTMLContent(title, issueKey) {
-    return title.replace(JIRA_KEY, `
-        <a href="${getJiraUrl(issueKey)}" target="_blank" alt="Ticket in Jira">${issueKey}</a>
-    `);
+// Wrap the issue key in the title with a link to Jira, operating on the text
+// node that holds it. The previous version ran a regex over the element's
+// innerHTML, so once the title already contained the link, the first match was
+// the key inside the href and the replacement corrupted the markup.
+function linkIssueKeyInTitle(titleEl, issueKey) {
+    const walker = document.createTreeWalker(titleEl, NodeFilter.SHOW_TEXT);
+
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const index = node.nodeValue.indexOf(issueKey);
+        if (index === -1) {
+            continue;
+        }
+
+        const keyNode = node.splitText(index);
+        keyNode.nodeValue = keyNode.nodeValue.slice(issueKey.length);
+        keyNode.parentNode.insertBefore(
+            el('a', {
+                href: getJiraUrl(issueKey),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                title: 'Ticket in Jira',
+                text: issueKey,
+            }),
+            keyNode
+        );
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -334,9 +359,7 @@ async function handlePrPage() {
         return false;
     }
 
-    const title = titleEl.innerHTML;
-
-    const titleMatch = title.match(JIRA_KEY);
+    const titleMatch = titleEl.textContent.match(JIRA_KEY);
     if (!titleMatch) {
         // Title was found, but ticket number wasn't.
         return false;
@@ -358,7 +381,9 @@ async function handlePrPage() {
     }
 
     //Replace title with clickable link to jira ticket
-    titleEl.innerHTML = titleHTMLContent(title, ticketNumber);
+    if (!titleEl.querySelector(`a[href^="${getJiraUrl('')}"]`)) {
+        linkIssueKeyInTitle(titleEl, ticketNumber);
+    }
 
     //Open up a handle for data
     const loadingElement = buildLoadingElement(ticketNumber);
