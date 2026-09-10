@@ -18,53 +18,6 @@
     </tr>
 
     <tr>
-        <td>
-            <label for="acceptanceStartString">Acceptance criteria start string</label>
-        </td>
-        <td>
-            <input type="text" id="acceptanceStartString"/>
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            <label for="acceptanceEndString">Acceptance criteria end string</label>
-        </td>
-        <td>
-            <input type="text" id="acceptanceEndString"/>
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            <label for="prTitleEnabled">Automatically insert title based on ticket number</label>
-        </td>
-        <td>
-            <input type="checkbox" id="prTitleEnabled" value="1"/>
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            <label for="prTemplateEnabled">Automatically insert template in new PR</label>
-        </td>
-        <td>
-            <input type="checkbox" id="prTemplateEnabled" value="1"/>
-        </td>
-    </tr>
-
-    <tr>
-        <td colspan="2">
-            <label for="prTemplate">New PR template:</label>
-        </td>
-    </tr>
-    <tr>
-        <td colspan="2">
-            <textarea style="width:300px; height:200px;" id="prTemplate"></textarea>
-        </td>
-    </tr>
-
-    <tr>
         <td colspan="2">
             <h2 id="status" style="display:none;background-color:rgb(57,255,59);">Options saved.</h2>
         </td>
@@ -79,13 +32,6 @@
         </td>
     </tr>
 </table>
-
-    <h3>Available template variables:</h3>
-    <table>
-        <tr><td><pre>{{ACCEPTANCE}}</pre></td> <td>The acceptance criteria as parsed from the ticket</td></tr>
-        <tr><td><pre>{{TICKETURL}}</pre></td> <td>Direct URL to the Jira ticket</td></tr>
-        <tr><td><pre>{{TICKETNUMBER}}</pre></td> <td>The ticket in XXX-123 format</td></tr>
-    </table>
 
     <script type="text/javascript" src="options.js"></script>
 </body>

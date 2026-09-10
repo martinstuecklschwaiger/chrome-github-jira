@@ -1,32 +1,5 @@
 let jiraLogo = chrome.runtime.getURL("images/jira.png");
 let jiraUrl = '';
-let acceptanceStartString = 'h3. Acceptance Criteria';
-let acceptanceEndString  = 'h3. Notes';
-let prTemplate = `
-    ### Fix {{TICKETNUMBER}}
-    Link to ticket: {{TICKETURL}}
-
-    ### What has been done
-    -
-    -
-
-    ### How to test
-    -
-    -
-
-    ### Acceptance criteria
-    {{ACCEPTANCE}}
-
-    ### Todo
-    - [ ]
-    - [ ]
-
-    ### Notes
-    -
-    -
-`;
-let prTemplateEnabled = true;
-let prTitleEnabled = true;
 
 // Watches the PR header for React reverting our injection
 let headerObserver = null;
@@ -41,11 +14,9 @@ main().catch(err => console.error('Unexpected error', err))
 /////////////////////////////////
 
 const PAGE_PR = 'PAGE_PR';
-const PAGE_PR_CREATE = 'PAGE_PR_CREATE';
 
 const GITHUB_PAGE_PULL = /github\.com\/(.*)\/(.*)\/pull\//
 const GITHUB_PAGE_PULLS = /github\.com\/(.*)\/(.*)\/pulls/
-const GITHUB_PAGE_COMPARE = /github\.com\/(.*)\/(.*)\/compare\/(.*)/
 
 // Events GitHub fires after a client-side navigation. `soft-nav:end` is what the
 // current React-rendered pages emit; `turbo:render` and `pjax:end` are kept for
@@ -226,23 +197,7 @@ function headerBlock(issueKey,
 /////////////////////////////////
 
 async function main(items) {
-    (
-        {
-            jiraUrl,
-            acceptanceStartString,
-            acceptanceEndString,
-            prTemplateEnabled,
-            prTitleEnabled,
-            prTemplate
-        } = await syncStorage({
-            jiraUrl,
-            acceptanceStartString,
-            acceptanceEndString,
-            prTemplateEnabled,
-            prTitleEnabled,
-            prTemplate
-        })
-    );
+    ({ jiraUrl } = await syncStorage({ jiraUrl }));
 
     if (jiraUrl == '') {
         console.error('GitHub Jira plugin could not load: Jira URL is not set. Please set the correct Jira URL in the options page.');
@@ -288,7 +243,6 @@ function onPageChange(page) {
     setTimeout(function() {
         handleCommitsTitle();
         if (page === PAGE_PR) handlePrPage();
-        if (page === PAGE_PR_CREATE) handlePrCreatePage();
     }, 200); //Small timeout for dom to finish setup
 }
 
@@ -300,10 +254,6 @@ function checkPage() {
 
     if (url.match(GITHUB_PAGE_PULLS) != null) {
         //@todo PR overview page
-    }
-
-    if (url.match(GITHUB_PAGE_COMPARE) != null) {
-        onPageChange(PAGE_PR_CREATE);
     }
 }
 
@@ -432,70 +382,5 @@ async function handlePrPage() {
     } catch(e) {
         console.error('Error fetching data', e)
         loadingElement.innerText = e.message;
-    }
-}
-
-async function handlePrCreatePage() {
-    if (prTitleEnabled == false && prTemplateEnabled == false) {
-        return;
-    }
-
-    let body = document.querySelector('textarea#pull_request_body');
-    if (!body) {
-        return;
-    }
-
-    if (body.getAttribute('jira-loading') === 'true') {
-        return false; //Already loading
-    }
-    body.setAttribute('jira-loading', 'true');
-
-    const title = document.title;
-    let ticketUrl = '**No linked ticket**';
-    let acceptanceList = '';
-    let ticketNumber = '?';
-    if (title) {
-        const titleMatch = title.match(/([a-zA-Z]+-[0-9]+)/);
-        if (titleMatch) {
-            // Found a title, fetch some info from the ticket
-            // Get the last one in the list.
-            ticketNumber = titleMatch[titleMatch.length - 1];
-            ticketUrl = getJiraUrl(ticketNumber);
-
-            //Load up data from jira
-            try {
-                const {
-                    fields: { summary, description: orgDescription },
-                    errors = false,
-                    errorMessages = false
-                } = {} = await sendMessage({ query: 'getTicketInfo', jiraUrl, ticketNumber });
-                if (errors) {
-                    throw new Error(errorMessages)
-                }
-
-                if (prTitleEnabled) {
-                    document.querySelector('input#pull_request_title').value = `[${ticketNumber.toUpperCase()}] ${summary}`;
-                }
-
-                let description = orgDescription
-                if (typeof description == 'string') {
-                    description = description.substr(description.indexOf(acceptanceStartString), description.length);
-                    description = description.substr(0, description.indexOf(acceptanceEndString));
-                    description = description.substr(acceptanceStartString.length, description.length - acceptanceEndString.length);
-
-                    acceptanceList = description.replace(/#/g, '- [ ]').replace(/^\s+|\s+$/g, '');
-                }
-            } catch(e) {
-                console.error('Could not get remote data', e)
-            }
-        }
-    }
-
-    if (prTemplateEnabled && body.value === '') {
-        const nextBodyValue = prTemplate
-            .replace('{{TICKETURL}}', ticketUrl)
-            .replace('{{TICKETNUMBER}}', ticketNumber)
-            .replace('{{ACCEPTANCE}}', acceptanceList);
-        body.value = nextBodyValue;
     }
 }
