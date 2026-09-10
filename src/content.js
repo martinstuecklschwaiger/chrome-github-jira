@@ -124,7 +124,7 @@ function userBlock(text, user) {
     const { avatarUrls, displayName } = user
     const avatarSrc = sanitizeUrl(avatarUrls && avatarUrls['16x16'])
 
-    return el('div', { class: 'd-inline-block' }, [
+    return el('div', { class: 'd-inline-block', style: 'margin-left:8px' }, [
         document.createTextNode(`${text} `),
         el('span', { class: 'author text-bold' }, [
             avatarSrc
