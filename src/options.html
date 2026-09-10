@@ -1,92 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8"/>
     <title>GitHub Jira integration plugin for Chrome</title>
     <style>
-        body: { padding: 10px; overflow:auto;}
+        body {
+            box-sizing: border-box;
+            min-width: 380px;
+            margin: 0;
+            padding: 20px 24px 24px;
+            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        h3 {
+            margin: 20px 0 12px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        input[type="url"] {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 6px 8px;
+            font: inherit;
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .hint {
+            margin-top: 6px;
+            color: #57606a;
+            font-size: 12px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        button {
+            padding: 6px 14px;
+            font: inherit;
+        }
+
+        #status {
+            margin: 16px 0 0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background-color: rgb(57, 255, 59);
+            font-size: 14px;
+            font-weight: 600;
+        }
     </style>
 </head>
 
 <body>
 <a href="https://github.com/RobQuistNL/chrome-github-jira">Source / GitHub / Issues</a>
-<br/>
+
 <h3>Settings</h3>
-<table>
-    <tr>
-        <td><label for="jiraUrl">Jira URL (without scheme or slashes):</label></td>
-        <td><input type="url" id="jiraUrl"/></td>
-    </tr>
 
-    <tr>
-        <td>
-            <label for="acceptanceStartString">Acceptance criteria start string</label>
-        </td>
-        <td>
-            <input type="text" id="acceptanceStartString"/>
-        </td>
-    </tr>
+<div class="field">
+    <label for="jiraUrl">Jira URL</label>
+    <input type="url" id="jiraUrl" placeholder="your-site.atlassian.net"/>
+    <p class="hint">Without scheme or slashes, e.g. <code>your-site.atlassian.net</code></p>
+</div>
 
-    <tr>
-        <td>
-            <label for="acceptanceEndString">Acceptance criteria end string</label>
-        </td>
-        <td>
-            <input type="text" id="acceptanceEndString"/>
-        </td>
-    </tr>
+<div class="actions">
+    <button id="save">Save</button>
+    <button id="clear">Clear storage</button>
+</div>
 
-    <tr>
-        <td>
-            <label for="prTitleEnabled">Automatically insert title based on ticket number</label>
-        </td>
-        <td>
-            <input type="checkbox" id="prTitleEnabled" value="1"/>
-        </td>
-    </tr>
+<p id="status" style="display:none;">Options saved.</p>
 
-    <tr>
-        <td>
-            <label for="prTemplateEnabled">Automatically insert template in new PR</label>
-        </td>
-        <td>
-            <input type="checkbox" id="prTemplateEnabled" value="1"/>
-        </td>
-    </tr>
-
-    <tr>
-        <td colspan="2">
-            <label for="prTemplate">New PR template:</label>
-        </td>
-    </tr>
-    <tr>
-        <td colspan="2">
-            <textarea style="width:300px; height:200px;" id="prTemplate"></textarea>
-        </td>
-    </tr>
-
-    <tr>
-        <td colspan="2">
-            <h2 id="status" style="display:none;background-color:rgb(57,255,59);">Options saved.</h2>
-        </td>
-    </tr>
-
-    <tr>
-        <td>
-            <button id="save">Save</button>
-        </td>
-        <td>
-            <button id="clear">Clear storage</button>
-        </td>
-    </tr>
-</table>
-
-    <h3>Available template variables:</h3>
-    <table>
-        <tr><td><pre>{{ACCEPTANCE}}</pre></td> <td>The acceptance criteria as parsed from the ticket</td></tr>
-        <tr><td><pre>{{TICKETURL}}</pre></td> <td>Direct URL to the Jira ticket</td></tr>
-        <tr><td><pre>{{TICKETNUMBER}}</pre></td> <td>The ticket in XXX-123 format</td></tr>
-    </table>
-
-    <script type="text/javascript" src="options.js"></script>
+<script type="text/javascript" src="options.js"></script>
 </body>
 </html>
