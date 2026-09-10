@@ -52,6 +52,11 @@ const GITHUB_PAGE_COMPARE = /github\.com\/(.*)\/(.*)\/compare\/(.*)/
 // pages (and GitHub Enterprise versions) still served by the older stack.
 const NAVIGATION_EVENTS = ['soft-nav:end', 'turbo:render', 'pjax:end']
 
+// A Jira issue key: a project key starting with a letter, then the number.
+// The looser `[A-Z0-9]+-[0-9]+` this replaces also matched things like
+// `123-456`, so a PR titled "Bump 123-456" was read as a ticket reference.
+const JIRA_KEY = /([A-Z][A-Z0-9]*-[0-9]+)/
+
 // The PR header is a React subtree that keeps committing while the page loads
 // its timeline, checks and status. Anything written into it before those
 // commits finish gets reconciled away, so the injection is watched and
@@ -107,7 +112,7 @@ function el(tag, props = {}, children = []) {
 }
 
 function titleHTMLContent(title, issueKey) {
-    return title.replace(/([A-Z0-9]+-[0-9]+)/, `
+    return title.replace(JIRA_KEY, `
         <a href="${getJiraUrl(issueKey)}" target="_blank" alt="Ticket in Jira">${issueKey}</a>
     `);
 }
@@ -163,9 +168,9 @@ function statusIconBlock(statusIcon) {
     return el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src })
 }
 
-function statusCategoryColors(statusCategory) {
+function statusCategoryColors(statusCategory = {}) {
     // There are only "blue", "green", and "grey" in Jira
-    switch (statusCategory.colorName) {
+    switch (statusCategory && statusCategory.colorName) {
         case "blue":
             return { color: "white", background: "rgb(150, 198, 222)" }
         case "green":
@@ -304,8 +309,6 @@ function checkPage() {
 
 
 function handleCommitsTitle() {
-    const issueKeyPattern = /([A-Z][A-Z0-9]*-[0-9]+)/;
-
     document.querySelectorAll(COMMIT_TITLE_SELECTORS.join(', ')).forEach((linkEl) => {
         // Already handled - a re-render or a navigation re-runs this over the
         // same nodes.
@@ -313,7 +316,7 @@ function handleCommitsTitle() {
             return;
         }
 
-        const match = linkEl.textContent.match(issueKeyPattern);
+        const match = linkEl.textContent.match(JIRA_KEY);
         if (!match) {
             return;
         }
@@ -383,7 +386,7 @@ async function handlePrPage() {
 
     const title = titleEl.innerHTML;
 
-    const titleMatch = title.match(/([A-Z0-9]+-[0-9]+)/);
+    const titleMatch = title.match(JIRA_KEY);
     if (!titleMatch) {
         // Title was found, but ticket number wasn't.
         return false;
