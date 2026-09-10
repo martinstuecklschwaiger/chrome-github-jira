@@ -131,7 +131,6 @@ function userBlock(text, user) {
                 ? el('a', { class: 'no-underline' }, [
                     el('img', {
                         class: 'avatar avatar-user',
-                        style: 'float:none;margin-right:0',
                         width: '20',
                         src: avatarSrc,
                     }),
@@ -145,7 +144,8 @@ function userBlock(text, user) {
 function buildLoadingElement(issueKey) {
     const el = document.createElement('div');
     el.id = 'insertedJiraData';
-    el.className = 'gh-header-meta';
+    el.className = 'jira-header-meta';
+    el.style.cssText = 'margin-top:8px;color:var(--fgColor-muted,#59636e)';
     el.dataset.ticket = issueKey;
     el.innerText = `Loading ticket ${issueKey}...`;
     return el;
@@ -190,13 +190,13 @@ function headerBlock(issueKey,
 
     return el('div', { class: 'TableObject' }, [
         el('div', { class: 'TableObject-item' }, [
-            el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222);' }, [
+            el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222); margin-right:8px' }, [
                 el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src: jiraLogo }),
                 el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
             ]),
         ]),
         el('div', { class: 'TableObject-item' }, [
-            el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}` }, [
+            el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}; margin-right:8px` }, [
                 statusIconBlock(statusIcon),
                 document.createTextNode(` ${statusName ?? ''}`),
             ]),
