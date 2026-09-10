@@ -51,10 +51,6 @@
         "http://*.jira.com/"
     ],
 
-    "optional_permissions": [
-        "*://*/*"
-    ],
-
     "background": {
         "service_worker": "src/background.js",
         "type": "module"
