@@ -14,6 +14,7 @@ main().catch(err => console.error('Unexpected error', err))
 /////////////////////////////////
 
 const PAGE_PR = 'PAGE_PR';
+const PAGE_PULLS = 'PAGE_PULLS';
 
 const GITHUB_PAGE_PULL = /github\.com\/(.*)\/(.*)\/pull\//
 const GITHUB_PAGE_PULLS = /github\.com\/(.*)\/(.*)\/pulls/
@@ -55,6 +56,15 @@ const COMMIT_TITLE_SELECTORS = [
 // class. When a repository has an autolink configured for the Jira prefix, the
 // key is already linked and there is nothing for us to do.
 const GITHUB_AUTOLINK_SELECTOR = 'a.issue-link'
+
+// Pull request titles on the list page. The class carries a content hash that
+// changes whenever GitHub rebuilds the bundle, so match on the stable prefix.
+// Autolink references do not apply to pull request titles - only to commit
+// messages, issue and pull request bodies, and comments - so the key sits here
+// as plain text and there is nothing else linking it.
+const PULLS_TITLE_SELECTORS = [
+    'a[class*="Title-module__anchor"]',
+]
 
 /////////////////////////////////
 // TEMPLATES
@@ -277,6 +287,7 @@ function onPageChange(page) {
     setTimeout(function() {
         handleCommitsTitle();
         if (page === PAGE_PR) handlePrPage();
+        if (page === PAGE_PULLS) handlePullsListPage();
     }, 200); //Small timeout for dom to finish setup
 }
 
@@ -287,10 +298,60 @@ function checkPage() {
     }
 
     if (url.match(GITHUB_PAGE_PULLS) != null) {
-        //@todo PR overview page
+        onPageChange(PAGE_PULLS);
     }
 }
 
+
+function jiraKeyLink(issueKey, style) {
+    return el('a', {
+        href: getJiraUrl(issueKey),
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'Ticket in Jira',
+        class: 'jira-commit-link',
+        style: `${style};font-weight:600;white-space:nowrap`,
+        text: issueKey,
+    });
+}
+
+// Remove a leading issue key from a title, returning whether it was there.
+// The key is looked for in the first non-empty text node, so a title that
+// mentions the key further along is left alone - stripping it from the middle
+// and re-inserting it at the front would reorder the words.
+function stripLeadingIssueKey(titleEl, issueKey) {
+    const walker = document.createTreeWalker(titleEl, NodeFilter.SHOW_TEXT);
+
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.nodeValue.trim()) {
+            continue;
+        }
+        if (node.nodeValue.trimStart().indexOf(issueKey) !== 0) {
+            return false;
+        }
+        node.nodeValue = node.nodeValue.trimStart().slice(issueKey.length).trimStart();
+        return true;
+    }
+
+    return false;
+}
+
+// Link the ticket beside a title. These titles are React-owned anchors and an
+// <a> inside an <a> is invalid HTML the parser drops, so the link has to be a
+// sibling rather than wrapping the key in place.
+//
+// Where the key leads the title it is lifted out and the link placed in front,
+// which is what GitHub's own autolink references do - the remaining title then
+// reads "| Some summary". Anywhere else the key stays put and the link is
+// appended, so the words keep their order.
+function appendJiraLink(titleEl, issueKey) {
+    if (stripLeadingIssueKey(titleEl, issueKey)) {
+        titleEl.insertAdjacentElement('beforebegin', jiraKeyLink(issueKey, 'margin-right:6px'));
+        return;
+    }
+
+    titleEl.insertAdjacentElement('afterend', jiraKeyLink(issueKey, 'margin-left:6px'));
+}
 
 function handleCommitsTitle() {
     document.querySelectorAll(COMMIT_ROW_SELECTORS.join(', ')).forEach((rowEl) => {
@@ -317,21 +378,29 @@ function handleCommitsTitle() {
             return;
         }
 
-        const issueKey = match[1];
+        appendJiraLink(linkEl, match[1]);
+    });
+}
 
-        // Append a sibling link rather than rebuilding the commit anchor's
-        // insides. The commit title is a React-owned <a>, and nesting another
-        // <a> inside it is invalid HTML that the parser drops.
-        const jiraLink = document.createElement('a');
-        jiraLink.href = getJiraUrl(issueKey);
-        jiraLink.target = '_blank';
-        jiraLink.rel = 'noopener noreferrer';
-        jiraLink.title = 'Ticket in Jira';
-        jiraLink.textContent = issueKey;
-        jiraLink.className = 'jira-commit-link';
-        jiraLink.style.cssText = 'margin-left:6px;font-weight:600;white-space:nowrap;';
+// The pull request list. GitHub shows the key in each title but does not link
+// it, so this is the one list where there is something to add.
+function handlePullsListPage() {
+    document.querySelectorAll(PULLS_TITLE_SELECTORS.join(', ')).forEach((linkEl) => {
+        if (linkEl.dataset.jiraChecked === 'true') {
+            return;
+        }
+        linkEl.dataset.jiraChecked = 'true';
 
-        linkEl.insertAdjacentElement('afterend', jiraLink);
+        if (linkEl.parentElement && linkEl.parentElement.querySelector(GITHUB_AUTOLINK_SELECTOR)) {
+            return;
+        }
+
+        const match = linkEl.textContent.match(JIRA_KEY);
+        if (!match) {
+            return;
+        }
+
+        appendJiraLink(linkEl, match[1]);
     });
 }
 
@@ -367,6 +436,10 @@ function watchDocument() {
         reassertTimer = setTimeout(() => {
             reassertTimer = null;
             handlePrPage();
+            // List rows arrive after load and change when the list is filtered
+            // or paged, neither of which is a navigation. Cheap no-op
+            // elsewhere: the selector matches nothing off the list page.
+            handlePullsListPage();
         }, REASSERT_DEBOUNCE);
     });
     headerObserver.observe(document.body, { childList: true, subtree: true });
