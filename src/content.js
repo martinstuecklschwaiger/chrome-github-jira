@@ -38,12 +38,23 @@ const JIRA_KEY = /([A-Z][A-Z0-9]*-[0-9]+)/
 // swaps it out.
 const REASSERT_DEBOUNCE = 50
 
-// Where commit titles live. GitHub replaced the `.commit-message` markup with a
-// React commit list, so both shapes are probed.
-const COMMIT_TITLE_SELECTORS = [
-    '.commit-message code a',
-    'li[data-testid="commit-row-item"] a.color-fg-default',
+// A row in a commit list. GitHub replaced the `.commit-message` markup with a
+// React list, so both shapes are probed.
+const COMMIT_ROW_SELECTORS = [
+    '.commit-message',
+    'li[data-testid="commit-row-item"]',
 ]
+
+// The title within such a row.
+const COMMIT_TITLE_SELECTORS = [
+    'code a',
+    'a.color-fg-default',
+]
+
+// GitHub's autolink references render an issue key as its own anchor with this
+// class. When a repository has an autolink configured for the Jira prefix, the
+// key is already linked and there is nothing for us to do.
+const GITHUB_AUTOLINK_SELECTOR = 'a.issue-link'
 
 /////////////////////////////////
 // TEMPLATES
@@ -282,10 +293,22 @@ function checkPage() {
 
 
 function handleCommitsTitle() {
-    document.querySelectorAll(COMMIT_TITLE_SELECTORS.join(', ')).forEach((linkEl) => {
-        // Already handled - a re-render or a navigation re-runs this over the
+    document.querySelectorAll(COMMIT_ROW_SELECTORS.join(', ')).forEach((rowEl) => {
+        // Already looked at - a re-render or a navigation re-runs this over the
         // same nodes.
-        if (linkEl.dataset.jiraLinked === 'true') {
+        if (rowEl.dataset.jiraChecked === 'true') {
+            return;
+        }
+        rowEl.dataset.jiraChecked = 'true';
+
+        // GitHub already linked the key itself. Adding a second link would
+        // duplicate it, so leave the row alone.
+        if (rowEl.querySelector(GITHUB_AUTOLINK_SELECTOR)) {
+            return;
+        }
+
+        const linkEl = rowEl.querySelector(COMMIT_TITLE_SELECTORS.join(', '));
+        if (!linkEl) {
             return;
         }
 
@@ -295,7 +318,6 @@ function handleCommitsTitle() {
         }
 
         const issueKey = match[1];
-        linkEl.dataset.jiraLinked = 'true';
 
         // Append a sibling link rather than rebuilding the commit anchor's
         // insides. The commit title is a React-owned <a>, and nesting another
