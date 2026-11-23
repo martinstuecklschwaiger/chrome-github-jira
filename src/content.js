@@ -153,7 +153,7 @@ function userBlock(text, user) {
     }
 
     const { avatarUrls, displayName } = user
-    const avatarSrc = sanitizeUrl(avatarUrls && avatarUrls['16x16'])
+    const avatarSrc = sanitizeUrl(avatarUrls && avatarUrls['48x48'])
 
     return el('div', { style: 'white-space:nowrap' }, [
         document.createTextNode(`${text} `),
