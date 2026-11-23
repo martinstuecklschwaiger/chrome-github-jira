@@ -39,6 +39,14 @@ const JIRA_KEY = /([A-Z][A-Z0-9]*-[0-9]+)/
 // swaps it out.
 const REASSERT_DEBOUNCE = 50
 
+// The pull request title in the page header. GitHub swapped the global
+// `markdown-title` class for a hashed `markdownTitle__…` one, so both shapes
+// are probed. The `h1 >` keeps out the copy of the title in the sticky header.
+const PR_TITLE_SELECTORS = [
+    'h1 > span.markdown-title',
+    'h1 > span[class*="markdownTitle"]',
+]
+
 // A row in a commit list. GitHub replaced the `.commit-message` markup with a
 // React list, so both shapes are probed.
 const COMMIT_ROW_SELECTORS = [
@@ -58,12 +66,15 @@ const COMMIT_TITLE_SELECTORS = [
 const GITHUB_AUTOLINK_SELECTOR = 'a.issue-link'
 
 // Pull request titles on the list page. The class carries a content hash that
-// changes whenever GitHub rebuilds the bundle, so match on the stable prefix.
+// changes whenever GitHub rebuilds the bundle, and GitHub has since renamed the
+// prefix too (`Title-module__anchor--…` became `anchor__…`), so the test id is
+// matched alongside the old prefix.
 // Autolink references do not apply to pull request titles - only to commit
 // messages, issue and pull request bodies, and comments - so the key sits here
 // as plain text and there is nothing else linking it.
 const PULLS_TITLE_SELECTORS = [
     'a[class*="Title-module__anchor"]',
+    'a[data-testid="listitem-title-link"]',
 ]
 
 /////////////////////////////////
@@ -412,7 +423,7 @@ function jiraHeaderIsIntact(ticketNumber) {
         return false;
     }
 
-    const titleEl = document.querySelector('h1 > span.markdown-title');
+    const titleEl = document.querySelector(PR_TITLE_SELECTORS.join(', '));
     if (titleEl && !titleEl.querySelector(`a[href^="${getJiraUrl('')}"]`)) {
         return false;
     }
@@ -446,7 +457,7 @@ function watchDocument() {
 }
 
 async function handlePrPage() {
-    const titleEl = document.querySelector('h1 > span.markdown-title');
+    const titleEl = document.querySelector(PR_TITLE_SELECTORS.join(', '));
     const pageHeaderDescriptionEl = document.querySelector('[class^="prc-PageHeader-Description"]');
     if (!titleEl || !pageHeaderDescriptionEl) {
         // Header hasn't rendered (yet) - nothing to attach to.
