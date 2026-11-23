@@ -155,7 +155,7 @@ function userBlock(text, user) {
     const { avatarUrls, displayName } = user
     const avatarSrc = sanitizeUrl(avatarUrls && avatarUrls['16x16'])
 
-    return el('div', { class: 'd-inline-block', style: 'margin-left:8px' }, [
+    return el('div', { style: 'white-space:nowrap' }, [
         document.createTextNode(`${text} `),
         el('span', { class: 'author text-bold' }, [
             avatarSrc
@@ -204,28 +204,22 @@ function headerBlock(issueKey,
     const issueUrl = getJiraUrl(issueKey)
     const { color: statusColor, background: statusBackground } = statusCategoryColors(statusCategory);
 
-    return el('div', { class: 'TableObject' }, [
-        el('div', { class: 'TableObject-item' }, [
-            el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222); margin-right:8px' }, [
-                el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
-            ]),
+    return el('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px' }, [
+        el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222)' }, [
+            el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
         ]),
-        el('div', { class: 'TableObject-item' }, [
-            el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}; margin-right:8px` }, [
-                document.createTextNode(statusName ?? ''),
-            ]),
+        el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}` }, [
+            document.createTextNode(statusName ?? ''),
         ]),
-        el('div', { class: 'TableObject-item TableObject-item--primary' }, [
-            el('strong', {}, [
-                el('a', {
-                    href: issueUrl,
-                    target: '_blank',
-                    rel: 'noopener noreferrer',
-                    text: summary ?? '',
-                }),
-            ]),
-            userBlock('Assigned to', assignee),
+        el('strong', {}, [
+            el('a', {
+                href: issueUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                text: summary ?? '',
+            }),
         ]),
+        userBlock('Assigned to', assignee),
     ])
 }
 
