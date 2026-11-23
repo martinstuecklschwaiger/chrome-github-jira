@@ -212,8 +212,8 @@ function headerBlock(issueKey,
     const { color: statusColor, background: statusBackground, border: statusBorder } = statusCategoryColors(statusCategory);
 
     return el('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px' }, [
-        el('span', { class: 'State State--green', style: `${CHIP_LAYOUT};background-color: rgb(150, 198, 222); box-shadow: none` }, [
-            el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
+        el('span', { class: 'State State--green', style: `${CHIP_LAYOUT};background-color: #1868DB; box-shadow: none` }, [
+            el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;font-weight:600', text: 'Jira' }),
         ]),
         el('span', { class: 'State State--white', style: `${CHIP_LAYOUT};color: ${statusColor}; background: ${statusBackground}; border-color: ${statusBorder}; box-shadow: none` }, [
             document.createTextNode(statusName ?? ''),
