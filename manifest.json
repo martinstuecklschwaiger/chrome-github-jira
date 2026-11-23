@@ -20,17 +20,6 @@
         "512": "images/icon512.png"
     },
 
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "images/jira.png"
-            ],
-            "matches": [
-                "*://github.com/*"
-            ]
-        }
-    ],
-
     "content_scripts": [
         {
             "matches": ["*://github.com/*"],

@@ -1,4 +1,3 @@
-let jiraLogo = chrome.runtime.getURL("images/jira.png");
 let jiraUrl = '';
 
 // Watches the PR header for React reverting our injection
@@ -212,7 +211,6 @@ function headerBlock(issueKey,
     return el('div', { class: 'TableObject' }, [
         el('div', { class: 'TableObject-item' }, [
             el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222); margin-right:8px' }, [
-                el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src: jiraLogo }),
                 el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
             ]),
         ]),
