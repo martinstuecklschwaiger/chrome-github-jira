@@ -182,17 +182,24 @@ function buildLoadingElement(issueKey) {
     return el;
 }
 
+// Jira colors a status by its category key. The API's colorName still carries
+// an older scheme ("blue-gray" for To Do, "yellow" for In Progress), so it is
+// ignored. The values are the light-theme colors of the design tokens Jira
+// uses for each category.
 function statusCategoryColors(statusCategory = {}) {
-    // There are only "blue", "green", and "grey" in Jira
-    switch (statusCategory && statusCategory.colorName) {
-        case "blue":
-            return { color: "white", background: "rgb(150, 198, 222)" }
-        case "green":
-            return { color: "white", background: "#28a745" }
+    switch (statusCategory && statusCategory.key) {
+        case "indeterminate":
+            return { color: "#123263", background: "#CFE1FD", border: "#8FB8F6" }
+        case "done":
+            return { color: "#37471F", background: "#D3F1A7", border: "#B3DF72" }
         default:
-            return { color: "rgb(40, 40, 40)", background: "rgb(220, 220, 220)" }
+            return { color: "#292A2E", background: "#0515240F", border: "#0B120E24" }
     }
 }
+
+// The height of GitHub's own state label ("Open") in the PR header, border
+// included, so the chips line up with it.
+const CHIP_LAYOUT = 'display:inline-flex;align-items:center;height:32px;box-sizing:border-box'
 
 function headerBlock(issueKey,
     {
@@ -202,13 +209,13 @@ function headerBlock(issueKey,
     } = {}
 ) {
     const issueUrl = getJiraUrl(issueKey)
-    const { color: statusColor, background: statusBackground } = statusCategoryColors(statusCategory);
+    const { color: statusColor, background: statusBackground, border: statusBorder } = statusCategoryColors(statusCategory);
 
     return el('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px' }, [
-        el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222)' }, [
+        el('span', { class: 'State State--green', style: `${CHIP_LAYOUT};background-color: rgb(150, 198, 222); box-shadow: none` }, [
             el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
         ]),
-        el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}` }, [
+        el('span', { class: 'State State--white', style: `${CHIP_LAYOUT};color: ${statusColor}; background: ${statusBackground}; border-color: ${statusBorder}; box-shadow: none` }, [
             document.createTextNode(statusName ?? ''),
         ]),
         el('strong', {}, [
