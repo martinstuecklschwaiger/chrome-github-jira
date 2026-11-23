@@ -1,4 +1,3 @@
-let jiraLogo = chrome.runtime.getURL("images/jira.png");
 let jiraUrl = '';
 
 // Watches the PR header for React reverting our injection
@@ -183,21 +182,6 @@ function buildLoadingElement(issueKey) {
     return el;
 }
 
-function statusIconBlock(statusIcon) {
-    const src = sanitizeUrl(statusIcon)
-    if (!src) {
-        return null
-    }
-
-    // If the icon is the same as its origin, it most probably is not an image
-    const origin = new URL(src).origin
-    if (src === origin || src === new URL(origin).href) {
-        return null
-    }
-
-    return el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src })
-}
-
 function statusCategoryColors(statusCategory = {}) {
     // There are only "blue", "green", and "grey" in Jira
     switch (statusCategory && statusCategory.colorName) {
@@ -213,7 +197,7 @@ function statusCategoryColors(statusCategory = {}) {
 function headerBlock(issueKey,
     {
         assignee,
-        status: { iconUrl: statusIcon, name: statusName, statusCategory } = {},
+        status: { name: statusName, statusCategory } = {},
         summary
     } = {}
 ) {
@@ -223,14 +207,12 @@ function headerBlock(issueKey,
     return el('div', { class: 'TableObject' }, [
         el('div', { class: 'TableObject-item' }, [
             el('span', { class: 'State State--green', style: 'background-color: rgb(150, 198, 222); margin-right:8px' }, [
-                el('img', { height: '16', width: '12', class: 'octicon', 'aria-hidden': 'true', src: jiraLogo }),
                 el('a', { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color:white;', text: 'Jira' }),
             ]),
         ]),
         el('div', { class: 'TableObject-item' }, [
             el('span', { class: 'State State--white', style: `color: ${statusColor}; background: ${statusBackground}; margin-right:8px` }, [
-                statusIconBlock(statusIcon),
-                document.createTextNode(` ${statusName ?? ''}`),
+                document.createTextNode(statusName ?? ''),
             ]),
         ]),
         el('div', { class: 'TableObject-item TableObject-item--primary' }, [
